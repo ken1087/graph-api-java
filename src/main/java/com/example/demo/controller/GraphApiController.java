@@ -19,6 +19,11 @@ import com.azure.identity.DeviceCodeInfo;
 import com.azure.identity.UsernamePasswordCredential;
 import com.azure.identity.UsernamePasswordCredentialBuilder;
 import com.microsoft.graph.authentication.TokenCredentialAuthProvider;
+import com.microsoft.graph.models.BodyType;
+import com.microsoft.graph.models.DateTimeTimeZone;
+import com.microsoft.graph.models.Event;
+import com.microsoft.graph.models.ItemBody;
+import com.microsoft.graph.models.Location;
 import com.microsoft.graph.models.User;
 import com.microsoft.graph.requests.GraphServiceClient;
 
@@ -29,6 +34,7 @@ public class GraphApiController {
 
 	private static Properties _properties;
 	private static DeviceCodeCredential _deviceCodeCredential;
+	private static UsernamePasswordCredential credential;
 	private static GraphServiceClient<Request> _userClient;
 	
 	@PostMapping("/create")
@@ -52,9 +58,11 @@ public class GraphApiController {
 
 	    initializeGraph(oAuthProperties);
 	    
-//	    greetUser();
+	    greetUser();
 	    
-//	    displayAccessToken();
+	    displayAccessToken();
+	    
+	    createCld();
 
 	}
 	
@@ -66,10 +74,11 @@ public class GraphApiController {
 
 	    _properties = properties;
 
-	    final String clientId = properties.getProperty("graph.clientId");
-	    final String tenantId = properties.getProperty("graph.tenantId");
+	    final String clientId = _properties.getProperty("graph.clientId");
+	    final String tenantId = _properties.getProperty("graph.tenantId");
 	    final List<String> graphUserScopes = Arrays
-	        .asList(properties.getProperty("graph.graphUserScopes").split(","));
+	        .asList(_properties.getProperty("graph.graphUserScopes").split(","));
+	    String clientSecret = "YOUR_CLIENT_SECRET";
 
 	    System.out.println(clientId);
 	    System.out.println(tenantId);
@@ -87,7 +96,7 @@ public class GraphApiController {
 
 	    System.out.println("2222222222222222222222222222222");
 	    
-	    final UsernamePasswordCredential credential = new UsernamePasswordCredentialBuilder()
+	    credential = new UsernamePasswordCredentialBuilder()
 	    	    .clientId(clientId).tenantId(tenantId).username(userName).password(password)
 	    	    .build();
 	    
@@ -96,7 +105,6 @@ public class GraphApiController {
 	    final TokenCredentialAuthProvider authProvider =
 	        new TokenCredentialAuthProvider(graphUserScopes, credential);
 
-	    
 	    System.out.println("444444444444444444444444444444444");
 	    
 	    final GraphServiceClient<Request> graphClient = GraphServiceClient.builder()
@@ -112,9 +120,15 @@ public class GraphApiController {
 	    
 	    System.out.println(user);
 	    
-//	    _userClient = GraphServiceClient.builder()
-//	        .authenticationProvider(authProvider)
-//	        .buildClient();
+//	    GraphServiceClient<Request> userClient = GraphServiceClient.builder()
+//		        .authenticationProvider(authProvider)
+//		        .buildClient();
+	    
+	    _userClient = GraphServiceClient.builder()
+	        .authenticationProvider(authProvider)
+	        .buildClient();
+	    
+	    System.out.println("666666666");
 	}
 	
 	private static void initializeGraph(Properties properties) {
@@ -134,12 +148,13 @@ public class GraphApiController {
 	        throw new Exception("Graph has not been initialized for user auth");
 	    }
 
-	    final String[] graphUserScopes = _properties.getProperty("app.graphUserScopes").split(",");
+	    final String[] graphUserScopes = _properties.getProperty("graph.graphUserScopes").split(",");
 
 	    final TokenRequestContext context = new TokenRequestContext();
 	    context.addScopes(graphUserScopes);
 
-	    final AccessToken token = _deviceCodeCredential.getToken(context).block();
+	    final AccessToken token = credential.getToken(context).block();
+	    
 	    return token.getToken();
 	}
 	
@@ -179,5 +194,39 @@ public class GraphApiController {
 	    }
 	}
 	
+	private static void createCld() {
+		
+		final List<String> graphUserScopes = Arrays
+		        .asList(_properties.getProperty("graph.graphUserScopes").split(","));
+		
+		final TokenCredentialAuthProvider authProvider =
+		        new TokenCredentialAuthProvider(graphUserScopes, credential);
+
+	    System.out.println("createCld 444444444444444444444444444444444");
+	    
+	    final GraphServiceClient<Request> graphClient = GraphServiceClient.builder()
+	    	    .authenticationProvider(authProvider).buildClient();
+	    
+	    
+	    Event event = new Event();
+	    event.subject = "Let's go for lunch";
+	    ItemBody body = new ItemBody();
+	    body.contentType = BodyType.HTML;
+	    body.content = "Does late morning work for you?";
+	    event.body = body;
+	    DateTimeTimeZone start = new DateTimeTimeZone();
+	    start.dateTime = "2023-08-16T12:00:00";
+	    start.timeZone = "Tokyo Standard Time";
+	    event.start = start;
+	    DateTimeTimeZone end = new DateTimeTimeZone();
+	    end.dateTime = "2023-08-16T13:00:00";
+	    end.timeZone = "Tokyo Standard Time";
+	    event.end = end;
+	    Location location = new Location();
+	    location.displayName = "";
+	    event.location = location;
+	    
+	    graphClient.me().events().buildRequest().post(event);
+	}
 	
 }
